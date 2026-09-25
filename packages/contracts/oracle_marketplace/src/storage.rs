@@ -1,4 +1,4 @@
-use crate::types::{MarketplaceConfig, OracleProvider};
+use crate::types::{CallEscrow, MarketplaceConfig, OracleProvider};
 use soroban_sdk::{contracttype, Address, BytesN, Env, Map, Vec};
 
 #[contracttype]
@@ -8,6 +8,12 @@ pub enum DataKey {
     OracleList,
     OracleRatings(BytesN<32>),
     CallOracle(u64),
+    /// Escrowed bounty for a call id.
+    CallEscrow(u64),
+    /// Total escrowed bounty ever settled for an oracle (denominated in the
+    /// escrow's own token, so treat as informational rather than a summable
+    /// aggregate across assets).
+    OracleEarnings(BytesN<32>),
 }
 
 pub fn set_config(env: &Env, config: &MarketplaceConfig) {
@@ -78,4 +84,31 @@ pub fn get_oracle_ratings(env: &Env, oracle: &BytesN<32>) -> Map<Address, bool> 
         .instance()
         .get(&DataKey::OracleRatings(oracle.clone()))
         .unwrap_or_else(|| Map::new(env))
+}
+
+// ---------------------------------------------------------------------------
+// Escrow
+// ---------------------------------------------------------------------------
+
+pub fn set_call_escrow(env: &Env, escrow: &CallEscrow) {
+    env.storage()
+        .instance()
+        .set(&DataKey::CallEscrow(escrow.call_id), escrow);
+}
+
+pub fn get_call_escrow(env: &Env, call_id: u64) -> Option<CallEscrow> {
+    env.storage().instance().get(&DataKey::CallEscrow(call_id))
+}
+
+pub fn set_oracle_earnings(env: &Env, oracle: &BytesN<32>, total: i128) {
+    env.storage()
+        .instance()
+        .set(&DataKey::OracleEarnings(oracle.clone()), &total);
+}
+
+pub fn get_oracle_earnings(env: &Env, oracle: &BytesN<32>) -> i128 {
+    env.storage()
+        .instance()
+        .get(&DataKey::OracleEarnings(oracle.clone()))
+        .unwrap_or(0)
 }
